@@ -1,0 +1,51 @@
+# print-function MCP server
+
+Function-aware checks for failed or imperfect FDM prints (CMU 24-679 Project 2). The tools answer the question operators actually face: **can this part still do its job, and is it worth finishing?** Built with the official MCP Python SDK (`mcp` 2.3, `MCPServer`).
+
+## Setup
+
+Requires [uv](https://docs.astral.sh/uv/) (Python 3.12+ installed automatically). MCP Inspector also needs Node.js.
+
+```bash
+cd print-mcp
+uv sync                    # install dependencies
+uv run pytest -q           # hand-calculation checks
+uv run mcp dev server.py   # MCP Inspector in the browser
+uv run demo_client.py      # scripted stdio client → demo_transcript.md
+uv run bench_tools.py      # tool latency over MCP (50 calls each)
+```
+
+Agent test (any OpenAI-compatible model server, e.g. Ollama):
+```bash
+uv run eval_agent.py --base-url http://localhost:11434/v1 --model qwen3:4b   # → eval_report.md
+```
+
+Connect from Claude Code: `claude mcp add print-function -- uv --directory /absolute/path/to/print-mcp run server.py`
+
+## Tools
+
+Units: mm (x, y measured from the part's datum frame), hours, grams, USD.
+
+| Tool | Purpose | Typed inputs (valid range) | Structured result |
+|---|---|---|---|
+| `feature_position_check` | GD&T true position of a hole axis, with MMC bonus | nominal and measured x, y (−500 to 500 mm); position tolerance (0.01–5 mm); optional MMC and measured hole size (0.5–50 mm) | deviation (zone diameter), bonus, allowed tolerance, margin, in-tolerance flag |
+| `fastener_fit_check` | Whether a bolt passes a printed hole vs ISO 273 | fastener (M3–M12), measured hole (0.5–50 mm), fit class (fine/medium/coarse) | ISO 273 holes, shortfall, bolt passes, floating position tolerance T = H − F, verdict |
+| `failure_waste` | What an abandoned print wasted | part mass (1–5,000 g), print time (0.1–200 h), progress (0–100%), filament $/kg, printer W, $/kWh, machine $/h | wasted g, h, kWh, USD; full print cost |
+| `layer_shift_impact` | Which features a layer shift moves or splits relative to the datums | shift dx, dy (±50 mm), shift height (0–500 mm), features (name, z range, position tolerance, optional hole size and bolt) | per feature: status, deviation, step, clear through-diameter, bolt passes, functional; overall verdict |
+| `continue_or_scrap` | Expected cost and hours to a usable part: finish vs scrap and reprint | progress, print time, mass, probability usable if continued (0–1), reprint success (0.05–1), cost inputs | expected cost and hours for both options, break-even probability, cheaper option |
+
+Every result includes a `scope` field listing its assumptions.
+
+## Invalid-input behavior
+
+Invalid input never returns a number; the server replies with `isError: true` and a readable message.
+1. **Schema level:** ranges, enums and types are in each tool's JSON schema, so values like `fastener: "M7"` are rejected before any calculation runs.
+2. **Calculation level:** checks the schema can't express, such as a feature whose top is below its bottom, raise `ToolError` with the reason.
+
+## Files
+
+`print_tools.py` (calculations) · `server.py` (MCP tools, schemas, result models) · `test_tools.py` · `demo_client.py` · `bench_tools.py` · `eval_agent.py`
+
+## Sources
+
+ASME Y14.5 (position tolerance, MMC bonus; floating fastener T = H − F). ISO 273 clearance holes. Song & Telenko (2017) on failure waste in FDM shops. MCP Python SDK documentation.
