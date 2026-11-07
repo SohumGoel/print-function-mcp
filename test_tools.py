@@ -8,7 +8,8 @@ import print_tools as pt
 def test_position_with_mmc_bonus():
     # dx = 0.12, dy = -0.09 → 2*sqrt(0.0144+0.0081) = 2*0.15 = 0.30; bonus 3.55-3.40 = 0.15; allowed 0.35
     r = pt.position_check(20, 15, 20.12, 14.91, 0.20, hole_mmc_dia_mm=3.40, measured_hole_dia_mm=3.55)
-    assert r["position_deviation_dia_mm"] == 0.30 and r["allowed_position_tol_mm"] == 0.35
+    assert r["radial_offset_mm"] == 0.15 and r["position_deviation_dia_mm"] == 0.30
+    assert r["allowed_position_tol_mm"] == 0.35
     assert r["in_position_tolerance"] and r["margin_mm"] == 0.05
 
 

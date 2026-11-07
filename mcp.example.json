@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "print-function": {
+      "command": "uv",
+      "args": ["--directory", "/absolute/path/to/print-function-mcp", "run", "server.py"]
+    }
+  }
+}

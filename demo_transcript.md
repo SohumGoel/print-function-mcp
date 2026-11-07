@@ -1,10 +1,10 @@
 # MCP demo transcript
 
-Server `print-function` over stdio, 2026-11-06 17:17.
+Server `print-function` over stdio, 2026-11-07 13:14.
 
 **Tools listed by the server:** `feature_position_check`, `fastener_fit_check`, `failure_waste`, `layer_shift_impact`, `continue_or_scrap`
 
-## Base tool: `feature_position_check`
+## Base tool (rebuilt from HW4): `feature_position_check`
 
 Request:
 ```json
@@ -24,17 +24,18 @@ Response (is_error=False):
 {
   "dx_mm": 0.12,
   "dy_mm": -0.09,
+  "radial_offset_mm": 0.15,
   "position_deviation_dia_mm": 0.3,
   "bonus_tolerance_mm": 0.15,
   "allowed_position_tol_mm": 0.35,
   "margin_mm": 0.05,
   "in_position_tolerance": true,
   "hole_size_at_least_mmc": true,
-  "scope": "ASME Y14.5 position: deviation = 2*sqrt(dx^2+dy^2); MMC bonus = measured hole - MMC size (holes only). Measured axis assumed perpendicular to the datum plane; 2D (x, y) only."
+  "scope": "ASME Y14.5 position: deviation = 2*sqrt(dx^2+dy^2); MMC bonus = measured hole - MMC size (holes only). Compare the zone diameter, not the radial offset, with the tolerance. Axis assumed perpendicular to the datum plane; 2D (x, y) only; geometry only, says nothing about strength."
 }
 ```
 
-## Base tool: `fastener_fit_check`
+## Base tool (rebuilt from HW4): `fastener_fit_check`
 
 Request:
 ```json
@@ -62,7 +63,7 @@ Response (is_error=False):
 }
 ```
 
-## Base tool: `failure_waste`
+## Base tool (rebuilt from HW4): `failure_waste`
 
 Request:
 ```json
@@ -156,7 +157,7 @@ Response (is_error=False):
     }
   ],
   "all_features_functional": false,
-  "scope": "pure x-y translation of every layer above shift_height_mm; datums are features printed below the shift; vertical cylindrical features; nominal geometry assumed correct before the shift"
+  "scope": "pure x-y translation of every layer above shift_height_mm; datums are features printed below the shift; vertical cylindrical features; nominal geometry assumed correct before the shift; geometry only: does not check strength, layer adhesion or material behavior"
 }
 ```
 

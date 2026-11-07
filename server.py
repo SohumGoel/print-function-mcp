@@ -47,7 +47,8 @@ def run(fn, **kwargs):
 class PositionResult(BaseModel):
     dx_mm: float
     dy_mm: float
-    position_deviation_dia_mm: float
+    radial_offset_mm: float = Field(description="Distance of the measured axis from nominal, sqrt(dx^2+dy^2)")
+    position_deviation_dia_mm: float = Field(description="Position zone diameter needed, 2 x radial offset; this is what is compared with the tolerance")
     bonus_tolerance_mm: float
     allowed_position_tol_mm: float
     margin_mm: float = Field(description="Allowed tolerance minus deviation; negative = out of tolerance")
@@ -168,7 +169,10 @@ def layer_shift_impact(
     shift_height_mm: Mm(0, 500, "Height at which the shift happened"),
     features: Annotated[list[Feature], Field(min_length=1, description="Functional features to check")],
 ) -> ShiftImpact:
-    """Which functional features a layer shift moves or splits relative to the datums, and whether each still works."""
+    """Which functional features a layer shift moves or splits relative to the datums, and whether each still works.
+
+    Geometry only. To decide whether to keep printing, follow with continue_or_scrap.
+    """
     return ShiftImpact(**run(pt.shift_impact, shift_dx_mm=shift_dx_mm, shift_dy_mm=shift_dy_mm,
                              shift_height_mm=shift_height_mm,
                              features=[f.model_dump() for f in features]))

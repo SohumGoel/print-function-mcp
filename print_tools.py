@@ -48,6 +48,7 @@ def position_check(nominal_x_mm, nominal_y_mm, measured_x_mm, measured_y_mm, pos
     allowed = position_tol_mm + bonus
     return {
         "dx_mm": r(dx), "dy_mm": r(dy),
+        "radial_offset_mm": r(deviation / 2),
         "position_deviation_dia_mm": r(deviation),
         "bonus_tolerance_mm": r(bonus),
         "allowed_position_tol_mm": r(allowed),
@@ -55,7 +56,8 @@ def position_check(nominal_x_mm, nominal_y_mm, measured_x_mm, measured_y_mm, pos
         "in_position_tolerance": deviation <= allowed + 1e-9,
         "hole_size_at_least_mmc": size_ok,
         "scope": ("ASME Y14.5 position: deviation = 2*sqrt(dx^2+dy^2); MMC bonus = measured hole - MMC size "
-                  "(holes only). Measured axis assumed perpendicular to the datum plane; 2D (x, y) only."),
+                  "(holes only). Compare the zone diameter, not the radial offset, with the tolerance. Axis assumed "
+                  "perpendicular to the datum plane; 2D (x, y) only; geometry only, says nothing about strength."),
     }
 
 
@@ -170,7 +172,8 @@ def shift_impact(shift_dx_mm, shift_dy_mm, shift_height_mm, features):
         "features": results,
         "all_features_functional": all(x["functional"] for x in results),
         "scope": ("pure x-y translation of every layer above shift_height_mm; datums are features printed "
-                  "below the shift; vertical cylindrical features; nominal geometry assumed correct before the shift"),
+                  "below the shift; vertical cylindrical features; nominal geometry assumed correct before the shift; "
+                  "geometry only: does not check strength, layer adhesion or material behavior"),
     }
 
 
