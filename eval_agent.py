@@ -2,9 +2,9 @@
 
 The model sees only the MCP tool list (names, descriptions, JSON schemas), exactly as an MCP client
 would pass it. Each case is a plain-English request with the expected tool(s) and key arguments.
-Works with any OpenAI-compatible endpoint, e.g. a local Ollama server:
-
-    uv run eval_agent.py --base-url http://localhost:11434/v1 --model qwen3:4b
+Two backends:
+    python eval_agent.py --backend transformers --model Qwen/Qwen3-4B-Instruct-2507   # local weights (Colab GPU)
+    python eval_agent.py --backend openai --base-url http://localhost:11434/v1 --model qwen3:4b
 Writes eval_report.md and eval_results.json.
 """
 
@@ -12,11 +12,11 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 
 from mcp import Client, StdioServerParameters
-from openai import OpenAI
 
 SYSTEM = (
     "You help makerspace operators decide what to do with imperfect or failed FDM prints. "
@@ -69,29 +69,80 @@ def to_openai(tool):
                                              "parameters": tool.input_schema}}
 
 
-async def run_case(llm, model, client, tools, request, max_turns=5):
+class OpenAIChat:
+    """Any OpenAI-compatible server (Ollama, vLLM, hosted APIs)."""
+
+    def __init__(self, model, base_url, api_key):
+        from openai import OpenAI
+        self.client, self.model = OpenAI(base_url=base_url, api_key=api_key), model
+
+    def chat(self, messages, tools):
+        resp = self.client.chat.completions.create(model=self.model, messages=messages, tools=tools, temperature=0)
+        msg = resp.choices[0].message
+        calls = [{"id": tc.id, "name": tc.function.name, "arguments": tc.function.arguments or "{}"}
+                 for tc in msg.tool_calls or []]
+        return msg.content or "", calls, resp.usage.total_tokens if resp.usage else 0
+
+
+class TransformersChat:
+    """Local Hugging Face weights, as in HW4. Qwen chat templates emit <tool_call>{json}</tool_call>."""
+
+    def __init__(self, model_id, max_new_tokens=512):
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        self.torch = torch
+        cuda = torch.cuda.is_available()
+        dtype = (torch.bfloat16 if cuda and torch.cuda.is_bf16_supported() else torch.float16) if cuda else torch.float32
+        self.tok = AutoTokenizer.from_pretrained(model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, dtype=dtype, device_map="auto").eval()
+        for flag in ("temperature", "top_p", "top_k"):      # greedy decoding, as in HW4
+            setattr(self.model.generation_config, flag, None)
+        self.max_new_tokens = max_new_tokens
+
+    def chat(self, messages, tools):
+        inputs = self.tok.apply_chat_template(messages, tools=tools, add_generation_prompt=True,
+                                              return_tensors="pt", return_dict=True).to(self.model.device)
+        with self.torch.inference_mode():
+            out = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens, do_sample=False,
+                                      pad_token_id=self.tok.eos_token_id)
+        new = out[0][inputs["input_ids"].shape[-1]:]
+        text = self.tok.decode(new, skip_special_tokens=True)
+        calls = []
+        for i, block in enumerate(re.findall(r"<tool_call>\s*(.*?)\s*</tool_call>", text, re.S)):
+            try:
+                obj = json.loads(block)
+                calls.append({"id": f"call_{i}", "name": obj.get("name", ""),
+                              "arguments": json.dumps(obj.get("arguments", {}))})
+            except json.JSONDecodeError:
+                calls.append({"id": f"call_{i}", "name": "_unparsed", "arguments": block})
+        content = re.sub(r"<tool_call>.*?</tool_call>", "", text, flags=re.S).strip()
+        return content, calls, int(inputs["input_ids"].shape[-1] + len(new))
+
+
+async def run_case(llm, client, tools, request, max_turns=5):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": request}]
     calls, tokens, t0 = [], 0, time.time()
     for _ in range(max_turns):
-        resp = llm.chat.completions.create(model=model, messages=messages, tools=tools, temperature=0)
-        tokens += resp.usage.total_tokens if resp.usage else 0
-        msg = resp.choices[0].message
-        if not msg.tool_calls:
-            return {"calls": calls, "answer": msg.content or "", "tokens": tokens, "seconds": time.time() - t0}
-        messages.append({"role": "assistant", "content": msg.content or "",
-                         "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
-        for tc in msg.tool_calls:
+        content, tool_calls, used = llm.chat(messages, tools)
+        tokens += used
+        if not tool_calls:
+            return {"calls": calls, "answer": content, "tokens": tokens, "seconds": time.time() - t0}
+        messages.append({"role": "assistant", "content": content,
+                         "tool_calls": [{"id": c["id"], "type": "function",
+                                         "function": {"name": c["name"], "arguments": c["arguments"]}}
+                                        for c in tool_calls]})
+        for c in tool_calls:
             try:
-                args = json.loads(tc.function.arguments or "{}")
+                args = json.loads(c["arguments"])
             except json.JSONDecodeError:
-                args = {"_unparsed": tc.function.arguments}
+                args = {"_unparsed": c["arguments"]}
             t = time.time()
-            result = await client.call_tool(tc.function.name, args)
+            result = await client.call_tool(c["name"], args)
             text = (json.dumps(result.structured_content) if result.structured_content
                     else result.content[0].text if result.content else "")
-            calls.append({"tool": tc.function.name, "args": args, "is_error": result.is_error,
+            calls.append({"tool": c["name"], "args": args, "is_error": result.is_error,
                           "tool_ms": round((time.time() - t) * 1000, 1)})
-            messages.append({"role": "tool", "tool_call_id": tc.id, "content": text})
+            messages.append({"role": "tool", "tool_call_id": c["id"], "content": text})
     return {"calls": calls, "answer": "(stopped: turn limit)", "tokens": tokens, "seconds": time.time() - t0}
 
 
@@ -109,16 +160,22 @@ def score(expected, checks, out):
 
 async def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--backend", choices=["transformers", "openai"], default="transformers")
+    ap.add_argument("--model", default="Qwen/Qwen3-4B-Instruct-2507")
     ap.add_argument("--base-url", default="http://localhost:11434/v1")
-    ap.add_argument("--model", default="qwen3:4b")
     ap.add_argument("--api-key", default=os.environ.get("OPENAI_API_KEY", "not-needed"))
+    ap.add_argument("--cases", default="", help="comma-separated case numbers to run, e.g. 1,3")
     a = ap.parse_args()
-    llm = OpenAI(base_url=a.base_url, api_key=a.api_key)
+    llm = (TransformersChat(a.model) if a.backend == "transformers"
+           else OpenAIChat(a.model, a.base_url, a.api_key))
+    wanted = {int(x) for x in a.cases.split(",") if x.strip()}
     rows = []
     async with Client(StdioServerParameters(command=sys.executable, args=["server.py"])) as client:
         tools = [to_openai(t) for t in (await client.list_tools()).tools]
         for i, (request, expected, checks) in enumerate(CASES, 1):
-            out = await run_case(llm, a.model, client, tools, request)
+            if wanted and i not in wanted:
+                continue
+            out = await run_case(llm, client, tools, request)
             tool_ok, bad_args = score(expected, checks, out)
             rows.append({"case": i, "request": request, "expected": expected, **out,
                          "tool_ok": tool_ok, "bad_args": bad_args})
