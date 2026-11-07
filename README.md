@@ -15,9 +15,10 @@ uv run demo_client.py      # scripted stdio client → demo_transcript.md
 uv run bench_tools.py      # tool latency over MCP (50 calls each)
 ```
 
-Agent test (any OpenAI-compatible model server, e.g. Ollama):
+Agent test: 10 plain-English requests; scores tool choice and arguments (needs `transformers`, `accelerate` and a GPU, e.g. Colab):
 ```bash
-uv run eval_agent.py --base-url http://localhost:11434/v1 --model qwen3:4b   # → eval_report.md
+python eval_agent.py --backend transformers --model Qwen/Qwen3-4B-Instruct-2507   # → eval_report.md
+python eval_agent.py --backend openai --base-url <OpenAI-compatible URL> --model <name>
 ```
 
 Connect from Claude Code: `claude mcp add print-function -- uv --directory /absolute/path/to/print-mcp run server.py`
