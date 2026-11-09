@@ -63,11 +63,13 @@ The server never measures the part, controls the printer or makes the final call
 
 ## How the tools connect to user research
 
-Interview evidence (anonymized, HW5):
-- Unattended overnight printing is the main pain, and a compromised part is fine if it still works (P2) → `layer_shift_impact`, `feature_position_check`, `fastener_fit_check` judge function, not looks.
-- Geometry alone doesn't prove function; material behavior matters (P3) → every result states "geometry only" in its `scope`, and strength is listed as a human check.
-- Some organizations keep printers off the cloud for IP reasons (P1) → the server runs fully locally.
-- Catch failures early rather than after the fact (P1) → `continue_or_scrap` puts numbers on the keep-going decision mid-print; `failure_waste` shows what a late discovery costs.
+Interview evidence (6 anonymized interviews, HW5):
+- **Restart or keep going is a cost call.** "Never resume a failed print" (P6); whether a failure is worth anything depends on filament cost, how far along it was and the design (P5, P6). → `failure_waste` and `continue_or_scrap` put numbers on that call.
+- **Only some features matter.** Fixes are "very part specific": shells and walls can be off, precise fits can't (P6); a compromised part is fine if it still works (P2). → `feature_position_check`, `fastener_fit_check` and `layer_shift_impact` judge the features the user names, not the whole part's looks.
+- **Looks fine isn't proof of strength** (P3, P4). → every result says "geometry only" in its `scope`, and strength is a human check.
+- **Trust needs verification:** P4 would edit G-code only if the printer's positioning could be checked; P5 wants a before-and-after example. → structured results with stated assumptions, and a person makes the final call.
+- **Some organizations keep printers off the cloud** for IP reasons (P1). → the server runs fully locally.
+- **Limit:** P5 and P6 said geometry errors during printing are rare; most failures are physical (bed adhesion, curling corners, nozzle jams). `layer_shift_impact` covers the less common case, and detecting physical failures is outside this server.
 
 ## Files
 

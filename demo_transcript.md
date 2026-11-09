@@ -1,10 +1,10 @@
 # MCP demo transcript
 
-Server `print-function` over stdio, 2026-11-07 13:14.
+Server `print-function` over stdio, 2026-11-08 21:17.
 
 **Tools listed by the server:** `feature_position_check`, `fastener_fit_check`, `failure_waste`, `layer_shift_impact`, `continue_or_scrap`
 
-## Base tool (rebuilt from HW4): `feature_position_check`
+## Base tool: `feature_position_check`
 
 Request:
 ```json
@@ -35,7 +35,7 @@ Response (is_error=False):
 }
 ```
 
-## Base tool (rebuilt from HW4): `fastener_fit_check`
+## Base tool: `fastener_fit_check`
 
 Request:
 ```json
@@ -63,7 +63,7 @@ Response (is_error=False):
 }
 ```
 
-## Base tool (rebuilt from HW4): `failure_waste`
+## Base tool: `failure_waste`
 
 Request:
 ```json

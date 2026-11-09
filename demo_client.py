@@ -22,11 +22,11 @@ FEATURES = [
 ]
 
 CALLS = [
-    ("Base tool (rebuilt from HW4)", "feature_position_check",
+    ("Base tool", "feature_position_check",
      {"nominal_x_mm": 20, "nominal_y_mm": 15, "measured_x_mm": 20.12, "measured_y_mm": 14.91,
       "position_tol_mm": 0.2, "hole_mmc_dia_mm": 3.4, "measured_hole_dia_mm": 3.55}),
-    ("Base tool (rebuilt from HW4)", "fastener_fit_check", {"fastener": "M3", "measured_hole_dia_mm": 3.25}),
-    ("Base tool (rebuilt from HW4)", "failure_waste", {"part_mass_g": 85, "total_print_time_h": 6, "progress_pct": 70}),
+    ("Base tool", "fastener_fit_check", {"fastener": "M3", "measured_hole_dia_mm": 3.25}),
+    ("Base tool", "failure_waste", {"part_mass_g": 85, "total_print_time_h": 6, "progress_pct": 70}),
     ("New tool 1", "layer_shift_impact",
      {"shift_dx_mm": 0.4, "shift_dy_mm": 0.3, "shift_height_mm": 10, "features": FEATURES}),
     ("New tool 2", "continue_or_scrap",
